@@ -113,7 +113,8 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
         leftBUttonPanel.setLayout(new BoxLayout(leftBUttonPanel, BoxLayout.X_AXIS));
 
         leftBUttonPanel.setMaximumSize(new Dimension(1000, 150));
-        leftBUttonPanel.setBackground(new Color(0xcd, 0xff, 0xeb));
+        leftBUttonPanel.setBackground(new Color(0x00, 0x9f, 0x9d));
+        leftBUttonPanel.setForeground(new Color(0xcd, 0xff, 0xeb));
         saveButton = new Button("Save");
         closeButton = new Button("Exit");
         saveButton.addActionListener(new ActionListener() {
@@ -139,6 +140,8 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
 
         loadListArea = new TextArea("", MAX_INSTANT_LIST_SIZE, 40, TextArea.SCROLLBARS_NONE);
         loadListArea.setEditable(false);
+        loadListArea.setForeground(new Color(0x07, 0x45, 0x6f));
+        loadListArea.setBackground(new Color(0xcd, 0xff, 0xeb));
         rightPanel.add(loadListArea);
 
 
@@ -280,7 +283,7 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
     private void updateLoadListArea() {
         String areaString = "";
         for(LoadItem item:loadList) {
-            areaString += "\n" + item.aru.nev + " ___ " + item.num;
+            areaString += "\n" + "0000".substring(0, 4-Integer.toString(item.num, 10).length()) + item.num + "    " + item.aru.nev;
         }
         loadListArea.setText(areaString);
     }
