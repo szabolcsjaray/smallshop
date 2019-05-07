@@ -76,6 +76,8 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
     private int selectN;
     int actualSelection = 0;
     private TextArea loadListArea;
+    Sheets service;
+    final String spreadsheetId = "1eELA6pYXF5PC1UIiNetW1jxnOBA05Tihe8iQymqLUbc";
 
     SmallShop() {
         /*
@@ -121,7 +123,10 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                System.out.println("todo save");
+                try {
+                    saveData();
+                } catch (Exception exc) {
+                }
             }
         });
         closeButton.addActionListener(new ActionListener() {
@@ -144,8 +149,6 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
         loadListArea.setBackground(new Color(0xcd, 0xff, 0xeb));
         rightPanel.add(loadListArea);
 
-
-        setVisible(true);// now frame will be visible, by default not visible
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
@@ -178,12 +181,11 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
         return new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
     }
 
-    public void testX() throws IOException, GeneralSecurityException {
+    public void loadItems() throws IOException, GeneralSecurityException {
         final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
         // final String spreadsheetId = "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms";
-        final String spreadsheetId = "1eELA6pYXF5PC1UIiNetW1jxnOBA05Tihe8iQymqLUbc";
         final String range = "Árlista!C1:D";
-        Sheets service = new Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
+        service = new Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
                 .setApplicationName(APPLICATION_NAME).build();
         ValueRange response = service.spreadsheets().values().get(spreadsheetId, range).execute();
         List<List<Object>> values = response.getValues();
@@ -205,13 +207,17 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
         }
 
         List<List<String>> valuesW = Arrays.asList(Arrays.asList("egy", "100"), Arrays.asList("Oxygen", "200"));
+
+    }
+
+    private void saveData() throws IOException, GeneralSecurityException {
         List<List<Object>> valuesO = new ArrayList<>();
-        for (List<String> list : valuesW) {
-            List<Object> listO = new ArrayList<Object>();
-            for (String s : list) {
-                listO.add(s);
-            }
-            valuesO.add(listO);
+        for (LoadItem item : loadList) {
+            List<Object> itemList = new ArrayList<Object>();
+            itemList.add(item.num);
+            itemList.add(item.aru.nev);
+            itemList.add(item.aru.ar);
+            valuesO.add(itemList);
         }
         ValueRange body = new ValueRange().setValues(valuesO);
         UpdateValuesResponse result = service.spreadsheets().values().update(spreadsheetId, "load!A1", body)
@@ -225,9 +231,10 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
 
         SmallShop me = new SmallShop();
         try {
-            me.testX();
+            me.loadItems();
         } catch (Exception e) {
         }
+        me.setVisible(true);
     }
 
     private void updateSelectListArea() {
@@ -282,10 +289,13 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
 
     private void updateLoadListArea() {
         String areaString = "";
+        int summaAr = 0;
         for(LoadItem item:loadList) {
-            areaString += "\n" + "0000".substring(0, 4-Integer.toString(item.num, 10).length()) + item.num + "    " + item.aru.nev;
+            areaString += "\n" + "0000".substring(0, 4-Integer.toString(item.num, 10).length()) + item.num + "    " + item.aru.nev + " (" +
+                    item.aru.ar + " Ft)              " + item.aru.ar*item.num + " Ft";
+            summaAr += item.aru.ar*item.num;
         }
-        loadListArea.setText(areaString);
+        loadListArea.setText("Összesen: " + summaAr + " Ft" + areaString);
     }
 
     private void removeAruFromLoad() {
