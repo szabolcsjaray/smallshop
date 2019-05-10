@@ -22,7 +22,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.security.GeneralSecurityException;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 import javax.swing.BoxLayout;
@@ -118,7 +122,10 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
         leftBUttonPanel.setBackground(new Color(0x00, 0x9f, 0x9d));
         leftBUttonPanel.setForeground(new Color(0xcd, 0xff, 0xeb));
         saveButton = new Button("Save");
+        String fonts[] = Toolkit.getDefaultToolkit().getFontList();
+        saveButton.setFont(new Font(fonts[0], Font.BOLD, 25));
         closeButton = new Button("Exit");
+        closeButton.setFont(new Font(fonts[0], Font.BOLD, 25));
         saveButton.addActionListener(new ActionListener() {
 
             @Override
@@ -143,7 +150,7 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
 
         leftPanel.add(leftBUttonPanel);
 
-        loadListArea = new TextArea("", MAX_INSTANT_LIST_SIZE, 40, TextArea.SCROLLBARS_NONE);
+        loadListArea = new TextArea("", MAX_INSTANT_LIST_SIZE, 40, TextArea.SCROLLBARS_VERTICAL_ONLY);
         loadListArea.setEditable(false);
         loadListArea.setForeground(new Color(0x07, 0x45, 0x6f));
         loadListArea.setBackground(new Color(0xcd, 0xff, 0xeb));
@@ -210,19 +217,60 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
 
     }
 
-    private void saveData() throws IOException, GeneralSecurityException {
+    private void saveSumma(int summa) throws IOException, GeneralSecurityException {
+        List<List<Object>> valuesAr = new ArrayList<>();
+        List<Object> itemList = new ArrayList<Object>();
+        valuesAr.add(itemList);
+        itemList.add(summa);
+
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd.");
+        String date = sdf.format(new Date());
+        itemList.add(date);
+
+        ValueRange body = new ValueRange().setValues(valuesAr);
+        UpdateValuesResponse result = service.spreadsheets().values().update(spreadsheetId, "load!F1", body)
+                .setValueInputOption("RAW").execute();
+        System.out.printf("Save summa: %d cells updated.", result.getUpdatedCells());
+    }
+
+    private void clearData() throws IOException, GeneralSecurityException {
         List<List<Object>> valuesO = new ArrayList<>();
-        for (LoadItem item : loadList) {
+        int summa = 0;
+        for (int i = 0;i<200;i++) {
             List<Object> itemList = new ArrayList<Object>();
-            itemList.add(item.num);
-            itemList.add(item.aru.nev);
-            itemList.add(item.aru.ar);
+            itemList.add("");
+            itemList.add("");
+            itemList.add("");
+            itemList.add("");
             valuesO.add(itemList);
         }
         ValueRange body = new ValueRange().setValues(valuesO);
         UpdateValuesResponse result = service.spreadsheets().values().update(spreadsheetId, "load!A1", body)
                 .setValueInputOption("RAW").execute();
-        System.out.printf("%d cells updated.", result.getUpdatedCells());
+        System.out.printf("Clear load data: %d cells updated.", result.getUpdatedCells());
+    }
+
+
+    private void saveData() throws IOException, GeneralSecurityException {
+        clearData();
+        List<List<Object>> valuesO = new ArrayList<>();
+        int summa = 0;
+        for (LoadItem item : loadList) {
+            List<Object> itemList = new ArrayList<Object>();
+            itemList.add(item.num);
+            itemList.add(item.aru.nev);
+            itemList.add(item.aru.ar);
+            int itemAr = item.num*item.aru.ar;
+            summa += itemAr;
+            itemList.add(itemAr);
+            valuesO.add(itemList);
+        }
+        ValueRange body = new ValueRange().setValues(valuesO);
+        UpdateValuesResponse result = service.spreadsheets().values().update(spreadsheetId, "load!A1", body)
+                .setValueInputOption("RAW").execute();
+        System.out.printf("Save data: %d cells updated.", result.getUpdatedCells());
+        saveSumma(summa);
+
 
     }
 
@@ -233,6 +281,7 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
         try {
             me.loadItems();
         } catch (Exception e) {
+            e.printStackTrace();
         }
         me.setVisible(true);
     }
