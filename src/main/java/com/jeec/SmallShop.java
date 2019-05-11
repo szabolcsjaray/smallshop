@@ -22,18 +22,21 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.security.GeneralSecurityException;
+import java.text.Collator;
+import java.text.RuleBasedCollator;
 import java.text.SimpleDateFormat;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import javax.swing.BoxLayout;
 
 import java.awt.*;
 
 public class SmallShop extends Frame implements TextListener, KeyListener {
+    private static final String TEST_LOAD_LIST_POSITION = "loadtest!A1";
+    private static final String LOAD_LIST_POSITION = "load!A1";
     private static final int MAX_INSTANT_LIST_SIZE = 20;
     private static final String APPLICATION_NAME = "Google Sheets API Java Quickstart";
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
@@ -47,7 +50,7 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
     private static final List<String> SCOPES = Collections.singletonList(SheetsScopes.SPREADSHEETS);
     private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
 
-    private class Aru {
+    private class Aru implements Comparable<Aru> {
         public String nev;
         public int ar;
 
@@ -55,9 +58,14 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
             nev = arunev;
             ar = aruar;
         }
+
+        @Override
+        public int compareTo( Aru other) {
+            return huCollator.compare(nev, other.nev );
+        }
     }
 
-    private class LoadItem {
+    private class LoadItem implements Comparable<LoadItem> {
         public Aru aru;
         public int num;
 
@@ -65,13 +73,18 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
             aru = a;
             num = 0;
         }
+
+        @Override
+        public int compareTo( LoadItem other) {
+            return aru.compareTo( other.aru);
+        }
     }
 
     private List<Aru> aruk = new ArrayList<>();
     private List<Aru> instantSearchList = new ArrayList<>();
-    private List<LoadItem> loadList = new ArrayList<>();
+    private ArrayList<LoadItem> loadList = new ArrayList<>();
     private TextField aruSearch;
-    private TextArea selectListArea;
+    private java.awt.List selectListArea;
     private Panel leftPanel;
     private Panel leftBUttonPanel;
     private Panel rightPanel;
@@ -79,15 +92,12 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
     private Button closeButton;
     private int selectN;
     int actualSelection = 0;
-    private TextArea loadListArea;
+    private java.awt.List loadListArea;
     Sheets service;
     final String spreadsheetId = "1eELA6pYXF5PC1UIiNetW1jxnOBA05Tihe8iQymqLUbc";
+    RuleBasedCollator huCollator = (RuleBasedCollator) Collator.getInstance(new Locale("hu", "HU"));
 
     SmallShop() {
-        /*
-         * Button b=new Button("click me"); b.setBounds(30,100,80,30);// setting button
-         * position add(b);
-         */// adding button into frame
         this.setTitle("SmallShop " + verzio);
         setSize(1000, 500);
         setLayout(new GridLayout(1,2));
@@ -108,8 +118,7 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
         aruSearch.addKeyListener(this);
         leftPanel.add(aruSearch);
 
-        selectListArea = new TextArea("", MAX_INSTANT_LIST_SIZE, 40, TextArea.SCROLLBARS_NONE);
-        selectListArea.setEditable(false);
+        selectListArea = new java.awt.List(MAX_INSTANT_LIST_SIZE);
         selectListArea.setMaximumSize(new Dimension(1000, 400));
         selectListArea.setBackground(new Color(0x07, 0x45, 0x6f));
         selectListArea.setForeground(new Color(0xcd, 0xff, 0xeb));
@@ -150,8 +159,7 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
 
         leftPanel.add(leftBUttonPanel);
 
-        loadListArea = new TextArea("", MAX_INSTANT_LIST_SIZE, 40, TextArea.SCROLLBARS_VERTICAL_ONLY);
-        loadListArea.setEditable(false);
+        loadListArea = new java.awt.List(MAX_INSTANT_LIST_SIZE);
         loadListArea.setForeground(new Color(0x07, 0x45, 0x6f));
         loadListArea.setBackground(new Color(0xcd, 0xff, 0xeb));
         rightPanel.add(loadListArea);
@@ -162,6 +170,7 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
                 dispose();
             }
         });
+
     }
 
     /**
@@ -190,7 +199,6 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
 
     public void loadItems() throws IOException, GeneralSecurityException {
         final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
-        // final String spreadsheetId = "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms";
         final String range = "Árlista!C1:D";
         service = new Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
                 .setApplicationName(APPLICATION_NAME).build();
@@ -199,7 +207,6 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
         if (values == null || values.isEmpty()) {
             System.out.println("No data found.");
         } else {
-            // System.out.println("Name, Major");
             for (List row : values) {
                 if (row.get(0) != null && !"***".equals(row.get(0)) && row.get(1) != null) {
                     try {
@@ -212,9 +219,6 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
                 System.out.print(".");
             }
         }
-
-        List<List<String>> valuesW = Arrays.asList(Arrays.asList("egy", "100"), Arrays.asList("Oxygen", "200"));
-
     }
 
     private void saveSumma(int summa) throws IOException, GeneralSecurityException {
@@ -245,7 +249,7 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
             valuesO.add(itemList);
         }
         ValueRange body = new ValueRange().setValues(valuesO);
-        UpdateValuesResponse result = service.spreadsheets().values().update(spreadsheetId, "load!A1", body)
+        UpdateValuesResponse result = service.spreadsheets().values().update(spreadsheetId, LOAD_LIST_POSITION, body)
                 .setValueInputOption("RAW").execute();
         System.out.printf("Clear load data: %d cells updated.", result.getUpdatedCells());
     }
@@ -266,7 +270,7 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
             valuesO.add(itemList);
         }
         ValueRange body = new ValueRange().setValues(valuesO);
-        UpdateValuesResponse result = service.spreadsheets().values().update(spreadsheetId, "load!A1", body)
+        UpdateValuesResponse result = service.spreadsheets().values().update(spreadsheetId, LOAD_LIST_POSITION, body)
                 .setValueInputOption("RAW").execute();
         System.out.printf("Save data: %d cells updated.", result.getUpdatedCells());
         saveSumma(summa);
@@ -284,22 +288,18 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
             e.printStackTrace();
         }
         me.setVisible(true);
+        me.updateSearchList();
     }
 
     private void updateSelectListArea() {
         String s = "";
+        selectListArea.removeAll();
         int n = 0;
         for (Aru a : instantSearchList) {
-            String sign = "";
-            String preSign = "   ";
-            if (n == actualSelection) {
-                sign = " <<<";
-                preSign = "> ";
-            }
-            s = s.concat(preSign + a.nev + " (" + a.ar + " Ft)" + sign + "\n");
+            selectListArea.add(a.nev + " (" + a.ar + " Ft)");
             n++;
         }
-        selectListArea.setText(s);
+        selectListArea.select(actualSelection);
     }
 
     private void addAru(final Aru a, int c) {
@@ -339,12 +339,25 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
     private void updateLoadListArea() {
         String areaString = "";
         int summaAr = 0;
+        loadListArea.removeAll();
+        Collections.sort(loadList);
         for(LoadItem item:loadList) {
-            areaString += "\n" + "0000".substring(0, 4-Integer.toString(item.num, 10).length()) + item.num + "    " + item.aru.nev + " (" +
-                    item.aru.ar + " Ft)              " + item.aru.ar*item.num + " Ft";
+            loadListArea.add("0000".substring(0, 4-Integer.toString(item.num, 10).length()) + item.num + "    " + item.aru.nev + " (" +
+                    item.aru.ar + " Ft)              " + item.aru.ar*item.num + " Ft");
             summaAr += item.aru.ar*item.num;
         }
-        loadListArea.setText("Összesen: " + summaAr + " Ft" + areaString);
+        loadListArea.add("Összesen: " + summaAr + " Ft" + areaString, 0);
+        selectActual();
+    }
+
+    private void selectActual() {
+        for (int i = 0;i<loadListArea.countItems();i++) {
+            if (loadListArea.getItems()[i].indexOf(selectListArea.getItems()[actualSelection])!=-1) {
+                loadListArea.select(i);
+                loadListArea.makeVisible(i);
+                break;
+            }
+        }
     }
 
     private void removeAruFromLoad() {
@@ -361,73 +374,75 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
     @Override
     public void textValueChanged(TextEvent e) {
         if (e.getID() == TextEvent.TEXT_VALUE_CHANGED) {
-            String[] szavak = aruSearch.getText().toUpperCase().split(" ");
-            instantSearchList = new ArrayList<>();
-            selectN = 0;
-            actualSelection = 0;
-
-            for (Aru a : aruk) {
-                String[] aruSzavak = a.nev.toUpperCase().split(" ");
-
-                int count = szavak.length;
-                int szoPos = 0;
-                for (String szo : szavak) {
-                    int aruSzoPos = 0;
-                    for (String aruSzo : aruSzavak) {
-                        if (szoPos == aruSzoPos && aruSzo.startsWith(szo)) {
-                            count--;
-                        }
-                        aruSzoPos++;
-                    }
-                    szoPos++;
-                }
-                if (count == 0) {
-                    addAru(a, 1);
-                }
-            }
-
-            for (Aru a : aruk) {
-                String[] aruSzavak = a.nev.toUpperCase().split(" ");
-                int count = szavak.length;
-                for (String szo : szavak) {
-                    boolean found = false;
-                    for (String aruSzo : aruSzavak) {
-                        if (!found && aruSzo.startsWith(szo)) {
-                            count--;
-                            found = true;
-                        }
-                    }
-                }
-                if (count == 0) {
-                    addAru(a, 2);
-                }
-            }
-
-            for (Aru a : aruk) {
-                String[] aruSzavak = a.nev.toUpperCase().split(" ");
-                int count = szavak.length;
-                for (String szo : szavak) {
-                    boolean found = false;
-                    for (String aruSzo : aruSzavak) {
-                        if (!found && aruSzo.contains(szo)) {
-                            count--;
-                            found = true;
-                        }
-                    }
-                }
-                if (count == 0) {
-                    addAru(a, 3);
-                }
-            }
-
-            updateSelectListArea();
+            updateSearchList();
         }
+    }
+
+    private void updateSearchList() {
+        String[] szavak = aruSearch.getText().toUpperCase().split(" ");
+        instantSearchList = new ArrayList<>();
+        selectN = 0;
+        actualSelection = 0;
+
+        for (Aru a : aruk) {
+            String[] aruSzavak = a.nev.toUpperCase().split(" ");
+
+            int count = szavak.length;
+            int szoPos = 0;
+            for (String szo : szavak) {
+                int aruSzoPos = 0;
+                for (String aruSzo : aruSzavak) {
+                    if (szoPos == aruSzoPos && aruSzo.startsWith(szo)) {
+                        count--;
+                    }
+                    aruSzoPos++;
+                }
+                szoPos++;
+            }
+            if (count == 0) {
+                addAru(a, 1);
+            }
+        }
+
+        for (Aru a : aruk) {
+            String[] aruSzavak = a.nev.toUpperCase().split(" ");
+            int count = szavak.length;
+            for (String szo : szavak) {
+                boolean found = false;
+                for (String aruSzo : aruSzavak) {
+                    if (!found && aruSzo.startsWith(szo)) {
+                        count--;
+                        found = true;
+                    }
+                }
+            }
+            if (count == 0) {
+                addAru(a, 2);
+            }
+        }
+
+        for (Aru a : aruk) {
+            String[] aruSzavak = a.nev.toUpperCase().split(" ");
+            int count = szavak.length;
+            for (String szo : szavak) {
+                boolean found = false;
+                for (String aruSzo : aruSzavak) {
+                    if (!found && aruSzo.contains(szo)) {
+                        count--;
+                        found = true;
+                    }
+                }
+            }
+            if (count == 0) {
+                addAru(a, 3);
+            }
+        }
+
+        updateSelectListArea();
     }
 
     @Override
     public void keyTyped(KeyEvent e) {
-        // TODO Auto-generated method stub
-
     }
 
     @Override
@@ -456,7 +471,5 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
 
     @Override
     public void keyReleased(KeyEvent e) {
-        // TODO Auto-generated method stub
-
     }
 }
