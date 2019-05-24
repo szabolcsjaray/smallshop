@@ -452,12 +452,12 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
         if ("Down".equals(KeyEvent.getKeyText(e.getKeyCode()))) {
             if (actualSelection < instantSearchList.size() - 1) {
                 actualSelection++;
-                updateSelectListArea();
+                selectListArea.select(actualSelection);
             }
         } else if ("Up".equals(KeyEvent.getKeyText(e.getKeyCode()))) {
             if (actualSelection > 0) {
                 actualSelection--;
-                updateSelectListArea();
+                selectListArea.select(actualSelection);
             }
         } else if ("Enter".equals(KeyEvent.getKeyText(e.getKeyCode()))) {
             if (e.isShiftDown()) {
