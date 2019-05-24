@@ -132,9 +132,11 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
         leftBUttonPanel.setForeground(new Color(0xcd, 0xff, 0xeb));
         saveButton = new Button("Save");
         String fonts[] = Toolkit.getDefaultToolkit().getFontList();
+        saveButton.setBackground(new Color(0x00, 0x9f, 0x9d));
         saveButton.setFont(new Font(fonts[0], Font.BOLD, 25));
         closeButton = new Button("Exit");
         closeButton.setFont(new Font(fonts[0], Font.BOLD, 25));
+        closeButton.setBackground(new Color(0x00, 0x9f, 0x9d));
         saveButton.addActionListener(new ActionListener() {
 
             @Override
@@ -199,7 +201,7 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
 
     public void loadItems() throws IOException, GeneralSecurityException {
         final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
-        final String range = "Árlista!C1:D";
+        final String range = "Arlista!C1:D";
         service = new Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
                 .setApplicationName(APPLICATION_NAME).build();
         ValueRange response = service.spreadsheets().values().get(spreadsheetId, range).execute();
