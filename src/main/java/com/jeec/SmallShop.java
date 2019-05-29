@@ -35,8 +35,10 @@ import javax.swing.BoxLayout;
 import java.awt.*;
 
 public class SmallShop extends Frame implements TextListener, KeyListener {
-    private static final String TEST_LOAD_LIST_POSITION = "loadtest!A1";
-    private static final String LOAD_LIST_POSITION = "load!A1";
+    private static final String TEST_LOAD_LIST_TAB = "loadtest";
+    private static final String LOAD_LIST_POSITION = "!A1";
+    private static final String LOAD_LIST_SUMMA_POSITION = "!F1";
+    private static final String LOAD_LIST_TAB = "load";
     private static final int MAX_INSTANT_LIST_SIZE = 20;
     private static final String APPLICATION_NAME = "Google Sheets API Java Quickstart";
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
@@ -96,9 +98,13 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
     Sheets service;
     final String spreadsheetId = "1eELA6pYXF5PC1UIiNetW1jxnOBA05Tihe8iQymqLUbc";
     RuleBasedCollator huCollator = (RuleBasedCollator) Collator.getInstance(new Locale("hu", "HU"));
+    private String loadListTab = LOAD_LIST_TAB;
 
-    SmallShop() {
-        this.setTitle("SmallShop " + verzio);
+    SmallShop(boolean testMode) {
+        this.setTitle("SmallShop " + verzio + (testMode ? " TESTMODE" : ""));
+        if (testMode) {
+            loadListTab = TEST_LOAD_LIST_TAB;
+        }
         setSize(1000, 500);
         setLayout(new GridLayout(1,2));
         leftPanel = new Panel();
@@ -220,6 +226,7 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
                 }
                 System.out.print(".");
             }
+            System.out.println("\n" + aruk.size() + " item loaded.");
         }
     }
 
@@ -234,9 +241,9 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
         itemList.add(date);
 
         ValueRange body = new ValueRange().setValues(valuesAr);
-        UpdateValuesResponse result = service.spreadsheets().values().update(spreadsheetId, "load!F1", body)
+        UpdateValuesResponse result = service.spreadsheets().values().update(spreadsheetId, loadListTab + LOAD_LIST_SUMMA_POSITION, body)
                 .setValueInputOption("RAW").execute();
-        System.out.printf("Save summa: %d cells updated.", result.getUpdatedCells());
+        System.out.printf("Save summa: %d cells updated on " + loadListTab + " tab.\n", result.getUpdatedCells());
     }
 
     private void clearData() throws IOException, GeneralSecurityException {
@@ -251,9 +258,9 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
             valuesO.add(itemList);
         }
         ValueRange body = new ValueRange().setValues(valuesO);
-        UpdateValuesResponse result = service.spreadsheets().values().update(spreadsheetId, LOAD_LIST_POSITION, body)
+        UpdateValuesResponse result = service.spreadsheets().values().update(spreadsheetId, loadListTab+LOAD_LIST_POSITION, body)
                 .setValueInputOption("RAW").execute();
-        System.out.printf("Clear load data: %d cells updated.", result.getUpdatedCells());
+        System.out.printf("Clear load data: %d cells cleared " + loadListTab + " tab.\n", result.getUpdatedCells());
     }
 
 
@@ -272,18 +279,21 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
             valuesO.add(itemList);
         }
         ValueRange body = new ValueRange().setValues(valuesO);
-        UpdateValuesResponse result = service.spreadsheets().values().update(spreadsheetId, LOAD_LIST_POSITION, body)
+        UpdateValuesResponse result = service.spreadsheets().values().update(spreadsheetId, loadListTab + LOAD_LIST_POSITION, body)
                 .setValueInputOption("RAW").execute();
-        System.out.printf("Save data: %d cells updated.", result.getUpdatedCells());
+        System.out.printf("Save data: %d cells updated on " + loadListTab + ".\n", result.getUpdatedCells());
         saveSumma(summa);
-
-
     }
 
     public static void main(String[] args) {
-        System.out.println("Start.");
+        System.out.println("Smallshop started.");
+        boolean testMode = false;
+        if (args.length > 0 && "test".equalsIgnoreCase(args[0])) {
+            testMode = true;
 
-        SmallShop me = new SmallShop();
+        }
+
+        SmallShop me = new SmallShop(testMode);
         try {
             me.loadItems();
         } catch (Exception e) {
