@@ -37,6 +37,7 @@ import java.awt.*;
 public class SmallShop extends Frame implements TextListener, KeyListener {
     private static final String TEST_LOAD_LIST_TAB = "loadtest";
     private static final String LOAD_LIST_POSITION = "!A1";
+    private static final String STATE_POSITION = "!I1";
     private static final String LOAD_LIST_SUMMA_POSITION = "!F1";
     private static final String LOAD_LIST_TAB = "load";
     private static final int MAX_INSTANT_LIST_SIZE = 20;
@@ -44,6 +45,7 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
     private static final String TOKENS_DIRECTORY_PATH = "tokens";
     private static final String verzio = "1.1";
+    private static final String ARLISTA_TAB_POS = "Arlista!C1:D";
 
     /**
      * Global instance of the scopes required by this quickstart. If modifying these
@@ -99,6 +101,9 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
     final String spreadsheetId = "1eELA6pYXF5PC1UIiNetW1jxnOBA05Tihe8iQymqLUbc";
     RuleBasedCollator huCollator = (RuleBasedCollator) Collator.getInstance(new Locale("hu", "HU"));
     private String loadListTab = LOAD_LIST_TAB;
+    private Button fixButton;
+    private String lastDate = "";
+    private int lastBalance = 0;
 
     SmallShop(boolean testMode) {
         this.setTitle("SmallShop " + verzio + (testMode ? " TESTMODE" : ""));
@@ -161,8 +166,24 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
             }
         });
 
+        fixButton = new Button("Fix latest");
+        fixButton.setBackground(new Color(0x00, 0x9f, 0x9d));
+        fixButton.setFont(new Font(fonts[0], Font.BOLD, 25));
+        fixButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    loadLatestData();
+                } catch (Exception exc) {
+                }
+            }
+
+        });
+
 
         leftBUttonPanel.add(saveButton);
+        leftBUttonPanel.add(fixButton);
         leftBUttonPanel.add(closeButton);
 
         leftPanel.add(leftBUttonPanel);
@@ -178,6 +199,11 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
                 dispose();
             }
         });
+
+    }
+
+    private void loadLatestData() {
+        System.out.println("fix button, not yet implemented...");
 
     }
 
@@ -206,28 +232,84 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
     }
 
     public void loadItems() throws IOException, GeneralSecurityException {
-        final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
-        final String range = "Arlista!C1:D";
-        service = new Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
-                .setApplicationName(APPLICATION_NAME).build();
-        ValueRange response = service.spreadsheets().values().get(spreadsheetId, range).execute();
+        ValueRange response = service.spreadsheets().values().get(spreadsheetId, ARLISTA_TAB_POS).execute();
         List<List<Object>> values = response.getValues();
         if (values == null || values.isEmpty()) {
             System.out.println("No data found.");
         } else {
-            for (List row : values) {
-                if (row.get(0) != null && !"***".equals(row.get(0)) && row.get(1) != null) {
-                    try {
-                        Aru a = new Aru((String) row.get(0), Integer.parseInt((String) row.get(1)));
-                        aruk.add(a);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-                System.out.print(".");
-            }
-            System.out.println("\n" + aruk.size() + " item loaded.");
+            refreshAruk(values);
         }
+    }
+
+    private void initService() throws GeneralSecurityException, IOException {
+        final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
+
+        service = new Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
+                .setApplicationName(APPLICATION_NAME).build();
+    }
+
+    private void refreshAruk(List<List<Object>> values) {
+        for (List row : values) {
+            if (row.get(0) != null && !"***".equals(row.get(0)) && row.get(1) != null) {
+                try {
+                    Aru a = new Aru((String) row.get(0), Integer.parseInt((String) row.get(1)));
+                    aruk.add(a);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            System.out.print(".");
+        }
+        System.out.println("\n" + aruk.size() + " item loaded.");
+    }
+
+    private void readLastState() {
+        List<List<Object>> values= null;
+
+        ValueRange response = null;
+        try {
+            response = service.spreadsheets().values().get(spreadsheetId, loadListTab + "!G1:I3").execute();
+        } catch (IOException e) {
+            System.out.println("Could not read last state.");
+            return;
+        }
+        values = response.getValues();
+        if (values == null || values.isEmpty()) {
+            System.out.println("No last state found.");
+        } else {
+            lastDate = getValueString(values, 0,0);
+            lastBalance = getValueInteger(values, 2, 2);
+            System.out.println("Read state. Last date:" + lastDate + ", last balance:" + lastBalance);
+        }
+    }
+
+    private String getValueString(List<List<Object>> values, int row, int col) {
+        try {
+                List<Object> rowList = values.get(row);
+                Object object = rowList.get(col);
+                return (String) object;
+        } catch (IndexOutOfBoundsException ioobe) {
+            return "";
+        }
+    }
+
+    private int getValueInteger(List<List<Object>> values, int row, int col) {
+        try {
+                List<Object> rowList = values.get(row);
+                Object object = rowList.get(col);
+                return Integer.parseInt((String) object);
+        } catch (IndexOutOfBoundsException ioobe) {
+            return 0;
+        }
+    }
+
+    private void writeToSheet(final String operation,
+                              final List<List<Object>> values,
+                              final String tabAndPosition) throws IOException, GeneralSecurityException {
+        ValueRange body = new ValueRange().setValues(values);
+        UpdateValuesResponse result = service.spreadsheets().values().update(spreadsheetId, tabAndPosition, body)
+                .setValueInputOption("RAW").execute();
+        System.out.printf(operation + ": %d cells updated on " + tabAndPosition + "\n", result.getUpdatedCells());
     }
 
     private void saveSumma(int summa) throws IOException, GeneralSecurityException {
@@ -240,10 +322,7 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
         String date = sdf.format(new Date());
         itemList.add(date);
 
-        ValueRange body = new ValueRange().setValues(valuesAr);
-        UpdateValuesResponse result = service.spreadsheets().values().update(spreadsheetId, loadListTab + LOAD_LIST_SUMMA_POSITION, body)
-                .setValueInputOption("RAW").execute();
-        System.out.printf("Save summa: %d cells updated on " + loadListTab + " tab.\n", result.getUpdatedCells());
+        writeToSheet("Save summa", valuesAr, loadListTab + LOAD_LIST_SUMMA_POSITION);
     }
 
     private void clearData() throws IOException, GeneralSecurityException {
@@ -257,14 +336,12 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
             itemList.add("");
             valuesO.add(itemList);
         }
-        ValueRange body = new ValueRange().setValues(valuesO);
-        UpdateValuesResponse result = service.spreadsheets().values().update(spreadsheetId, loadListTab+LOAD_LIST_POSITION, body)
-                .setValueInputOption("RAW").execute();
-        System.out.printf("Clear load data: %d cells cleared " + loadListTab + " tab.\n", result.getUpdatedCells());
+        writeToSheet("Clear Data", valuesO, loadListTab + LOAD_LIST_POSITION);
     }
 
 
     private void saveData() throws IOException, GeneralSecurityException {
+        readLastState();
         clearData();
         List<List<Object>> valuesO = new ArrayList<>();
         int summa = 0;
@@ -278,11 +355,21 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
             itemList.add(itemAr);
             valuesO.add(itemList);
         }
-        ValueRange body = new ValueRange().setValues(valuesO);
-        UpdateValuesResponse result = service.spreadsheets().values().update(spreadsheetId, loadListTab + LOAD_LIST_POSITION, body)
-                .setValueInputOption("RAW").execute();
-        System.out.printf("Save data: %d cells updated on " + loadListTab + ".\n", result.getUpdatedCells());
+        writeToSheet("Save data", valuesO, loadListTab + LOAD_LIST_POSITION);
         saveSumma(summa);
+        saveLastState();
+    }
+
+    private void saveLastState() throws IOException, GeneralSecurityException {
+        List<List<Object>> valuesO = new ArrayList<>();
+        List<Object> stateList1 = new ArrayList<Object>();
+        stateList1.add(lastDate);
+        valuesO.add(stateList1);
+        List<Object> stateList2 = new ArrayList<Object>();
+        stateList2.add(lastBalance);
+        valuesO.add(stateList2);
+        writeToSheet("Save state", valuesO, loadListTab + STATE_POSITION);
+
     }
 
     public static void main(String[] args) {
@@ -295,6 +382,7 @@ public class SmallShop extends Frame implements TextListener, KeyListener {
 
         SmallShop me = new SmallShop(testMode);
         try {
+            me.initService();
             me.loadItems();
         } catch (Exception e) {
             e.printStackTrace();
